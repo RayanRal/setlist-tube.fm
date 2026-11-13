@@ -36,11 +36,12 @@ def test_search_songs() -> None:
     assert result.is_song
 
 
-def test_falls_back_to_videos() -> None:
+def test_search_videos() -> None:
     fake = FakeYTMusic({"videos": [{**SONG_RESULT, "album": None}]})
-    [result] = YouTubeMusicCatalog(fake).search("q")
+    [result] = YouTubeMusicCatalog(fake).search("q", videos=True)
     assert not result.is_song
-    assert fake.calls == [("q", "songs"), ("q", "videos")]
+    assert result.album is None
+    assert fake.calls == [("q", "videos")]
 
 
 def test_search_errors_are_swallowed() -> None:

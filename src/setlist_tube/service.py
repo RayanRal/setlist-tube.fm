@@ -28,16 +28,23 @@ class SetlistResult:
 
 
 def match_song(catalog: Catalog, song: Song) -> Match:
-    primary = best_match(song, song.artist, catalog.search(f"{song.artist} {song.title}"))
-    if primary.confident or not song.original_artist:
-        return primary
-    # Cover: the band's own recording may not exist; try the original artist.
-    original = best_match(
-        song,
-        song.original_artist,
-        catalog.search(f"{song.original_artist} {song.title}"),
-    )
-    return pick(primary, original)
+    """Search until a confident match turns up, cheapest/likeliest first.
+
+    1. The band's songs; 2. the band's videos (rarities, live-only songs);
+    3-4. for covers, the original artist's songs, then videos.
+    """
+    artists = [song.artist]
+    if song.original_artist:
+        artists.append(song.original_artist)
+
+    best = Match(song=song, track=None, score=0.0, confident=False)
+    for artist in artists:
+        for videos in (False, True):
+            candidates = catalog.search(f"{artist} {song.title}", videos=videos)
+            best = pick(best, best_match(song, artist, candidates))
+            if best.confident:
+                return best
+    return best
 
 
 class SetlistService:

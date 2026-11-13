@@ -15,7 +15,12 @@ SearchKind = Literal["songs", "videos"]
 
 
 class Catalog(Protocol):
-    def search(self, query: str, limit: int = 5) -> list[Track]: ...
+    def search(self, query: str, limit: int = 5, *, videos: bool = False) -> list[Track]:
+        """Search catalog songs, or plain videos when ``videos`` is set.
+
+        Catalogs without videos (e.g. Spotify) return ``[]`` for ``videos=True``.
+        """
+        ...
 
 
 def _track_from_result(result: dict[str, Any], *, is_song: bool) -> Track | None:
@@ -34,7 +39,10 @@ def _track_from_result(result: dict[str, Any], *, is_song: bool) -> Track | None
 
 
 class YouTubeMusicCatalog:
-    """Anonymous (no login) YouTube Music search via ytmusicapi."""
+    """Anonymous (no login) YouTube Music search via ytmusicapi.
+
+    Songs give clean studio tracks; videos cover rarities and live-only songs.
+    """
 
     def __init__(self, client: Any | None = None) -> None:
         self._yt = client if client is not None else YTMusic()
@@ -48,6 +56,5 @@ class YouTubeMusicCatalog:
         tracks = (_track_from_result(r, is_song=kind == "songs") for r in results)
         return [t for t in tracks if t is not None][:limit]
 
-    def search(self, query: str, limit: int = 5) -> list[Track]:
-        # Songs give clean studio tracks; fall back to videos for rarities.
-        return self._search(query, "songs", limit) or self._search(query, "videos", limit)
+    def search(self, query: str, limit: int = 5, *, videos: bool = False) -> list[Track]:
+        return self._search(query, "videos" if videos else "songs", limit)

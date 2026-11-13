@@ -23,8 +23,9 @@ def test_cover_falls_back_to_original_artist() -> None:
     match = match_song(catalog, COVER)
     assert match.track is not None and match.track.id == "c"
     assert catalog.queries == [
-        "Radiohead Nobody Does It Better",
-        "Carly Simon Nobody Does It Better",
+        ("Radiohead Nobody Does It Better", False),
+        ("Radiohead Nobody Does It Better", True),
+        ("Carly Simon Nobody Does It Better", False),
     ]
 
 
@@ -35,6 +36,27 @@ def test_cover_by_band_found_skips_fallback() -> None:
     match = match_song(catalog, COVER)
     assert match.track is not None and match.track.id == "r"
     assert len(catalog.queries) == 1
+
+
+def test_videos_tried_when_songs_dont_match() -> None:
+    rarity = Song(title="Lift", artist="Radiohead")
+    catalog = FakeCatalog(
+        songs={"Radiohead Lift": [track("s", "Lift Me Up", "Someone Else")]},
+        videos={"Radiohead Lift": [track("v", "Lift", "Radiohead", is_song=False)]},
+    )
+    match = match_song(catalog, rarity)
+    assert match.track is not None and match.track.id == "v"
+
+
+def test_unsure_song_kept_over_worse_video() -> None:
+    song = Song(title="Daydreaming", artist="Radiohead")
+    catalog = FakeCatalog(
+        songs={"Radiohead Daydreaming": [track("s", "Daydreaming", "Radiohead Live Band")]},
+        videos={"Radiohead Daydreaming": [track("v", "Daydream", "Radiohead Fans", is_song=False)]},
+    )
+    match = match_song(catalog, song)
+    assert match.track is not None and match.track.id == "s"
+    assert not match.confident
 
 
 def test_build_end_to_end() -> None:

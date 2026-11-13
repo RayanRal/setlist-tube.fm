@@ -24,6 +24,12 @@ _NOISE_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 _NON_WORD_RE = re.compile(r"[^\w\s]")
+# Re-recordings by someone else that otherwise look like a perfect match.
+_IMPOSTOR_RE = re.compile(
+    r"\b(tribute|karaoke|covers?|covered by|in the style of|made famous|originally performed"
+    r"|instrumental|8[ -]?bit|lullaby|piano version|backing track)\b",
+    re.IGNORECASE,
+)
 _SPACES_RE = re.compile(r"\s+")
 
 TITLE_WEIGHT = 0.65
@@ -32,6 +38,10 @@ CONFIDENT_TITLE = 85.0
 CONFIDENT_ARTIST = 80.0
 MIN_SCORE = 55.0
 """Below this we'd rather report "not found" than play the wrong song."""
+MIN_TITLE = 60.0
+MIN_ARTIST = 50.0
+"""Both must be plausible on their own: a same-titled song by another artist
+(or with no artist at all) is a different song, however exact the title."""
 VIDEO_PENALTY = 5.0
 """Prefer real catalog songs over plain videos when scores are close."""
 
@@ -62,6 +72,22 @@ def artist_similarity(artist: str, track_artists: Iterable[str]) -> float:
     return max(fuzz.ratio(target, n) for n in names)
 
 
+def _fold(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+
+
+def is_impostor(song_title: str, artist: str, track: Track) -> bool:
+    """True for tribute/karaoke/cover-style tracks the setlist didn't ask for.
+
+    Checked on the raw text, since :func:`normalize` strips some of these
+    words (e.g. "(Piano Version)").
+    """
+    wanted = _fold(f"{song_title} {artist}")
+    found = _fold(" ".join([track.title, *track.artists]))
+    return any(m.group(0) not in wanted for m in _IMPOSTOR_RE.finditer(found))
+
+
 def score(song_title: str, artist: str, track: Track) -> tuple[float, float, float]:
     """Return ``(total, title_score, artist_score)``."""
     t = title_similarity(song_title, track.title)
@@ -76,7 +102,11 @@ def best_match(song: Song, artist: str, candidates: Iterable[Track]) -> Match:
     """Choose the best of ``candidates`` for ``song`` as performed by ``artist``."""
     best: Match = Match(song=song, track=None, score=0.0, confident=False)
     for track in candidates:
+        if is_impostor(song.title, artist, track):
+            continue
         total, t, a = score(song.title, artist, track)
+        if t < MIN_TITLE or a < MIN_ARTIST:
+            continue
         if total > best.score:
             confident = t >= CONFIDENT_TITLE and a >= CONFIDENT_ARTIST
             best = Match(song=song, track=track, score=total, confident=confident)

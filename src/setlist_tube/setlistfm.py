@@ -39,8 +39,11 @@ def parse_setlist_id(url_or_id: str) -> str:
     if _BARE_ID_RE.match(value):
         return value.lower()
 
-    parsed = urlparse(value if "://" in value else f"https://{value}")
-    host = (parsed.hostname or "").lower()
+    try:
+        parsed = urlparse(value if "://" in value else f"https://{value}")
+        host = (parsed.hostname or "").lower()
+    except ValueError as exc:  # e.g. "https://[broken"
+        raise InvalidSetlistUrl("That doesn't look like a valid link.") from exc
     if host != "setlist.fm" and not host.endswith(".setlist.fm"):
         raise InvalidSetlistUrl("That doesn't look like a setlist.fm link.")
     if not parsed.path.startswith("/setlist/"):

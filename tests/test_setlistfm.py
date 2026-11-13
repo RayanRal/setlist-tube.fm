@@ -63,6 +63,7 @@ def test_parse_setlist_id(value: str, expected: str) -> None:
         "https://notsetlist.fm/setlist/a/2017/msg-63de4613.html",
         "https://www.setlist.fm/stats/radiohead-bd6bd12.html",
         "https://www.setlist.fm/setlist/radiohead/2017/no-id.html",
+        "https://[www.setlist.fm/setlist/radiohead/2017/msg-63de4613.html",
         "",
     ],
 )

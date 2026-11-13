@@ -47,4 +47,6 @@ jobs:
             echo "::warning::RENDER_DEPLOY_HOOK_URL secret is not set; skipping deploy."
             exit 0
           fi
-          curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
+          # Deploy exactly the commit that passed checks, not whatever main is now.
+          sep='?'; case "$RENDER_DEPLOY_HOOK_URL" in *\?*) sep='&';; esac
+          curl --fail --silent --show-error -X POST "${RENDER_DEPLOY_HOOK_URL}${sep}ref=${GITHUB_SHA}"

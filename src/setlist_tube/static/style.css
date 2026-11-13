@@ -1,0 +1,106 @@
+:root {
+  --bg: #fafaf9;
+  --fg: #1c1917;
+  --muted: #78716c;
+  --line: #e7e5e4;
+  --card: #ffffff;
+  --accent: #dc2626;
+  --accent-fg: #ffffff;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1917;
+    --fg: #f5f5f4;
+    --muted: #a8a29e;
+    --line: #3a3532;
+    --card: #262220;
+    --accent: #ef4444;
+    --accent-fg: #1c1917;  /* white on #ef4444 fails WCAG AA contrast */
+    --warn: #fbbf24;
+    --warn-bg: #3b2f0f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main { max-width: 44rem; margin: 0 auto; padding: 2rem 1rem 3rem; }
+a { color: inherit; }
+
+header h1 { margin: 0; font-size: 1.75rem; letter-spacing: -0.02em; }
+header h1 a { text-decoration: none; }
+header h1 span { color: var(--accent); }
+.tagline { margin: 0.25rem 0 1.5rem; color: var(--muted); }
+
+.search { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.search input {
+  flex: 1 1 18rem;
+  min-width: 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+}
+button, .play-button {
+  padding: 0.65rem 1.1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: progress; }
+
+.hint, .meta { color: var(--muted); font-size: 0.9rem; }
+.error { color: var(--accent); font-weight: 500; }
+
+.result { margin-top: 2rem; }
+.result h2 { margin: 0; }
+.meta { margin-top: 0.15rem; }
+
+.play { margin: 1.25rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.play .hint { flex-basis: 100%; margin: 0.25rem 0 0; }
+
+.tracks { list-style: none; padding: 0; counter-reset: track; }
+.tracks li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 0.75rem;
+  align-items: baseline;
+}
+.tracks li::before {
+  counter-increment: track;
+  content: counter(track);
+  color: var(--muted);
+  min-width: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.song { font-weight: 600; flex: 1 1 12rem; }
+.track { color: var(--muted); font-size: 0.9rem; flex: 2 1 16rem; overflow-wrap: anywhere; }
+small { color: var(--muted); font-weight: 400; }
+.missing .song { color: var(--muted); text-decoration: line-through; }
+.badge {
+  font-size: 0.75rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
+footer { margin-top: 3rem; color: var(--muted); font-size: 0.8rem; }

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if result %}{{ result.setlist.title }} · {% endif %}setlist-tube.fm</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <main>
+    <header>
+      <h1><a href="/">setlist-tube<span>.fm</span></a></h1>
+      <p class="tagline">Paste a setlist.fm show, get a YouTube playlist.</p>
+    </header>
+
+    <form action="/show" method="get" class="search">
+      <input type="url" name="url" value="{{ url }}" required autofocus
+             placeholder="https://www.setlist.fm/setlist/…" aria-label="setlist.fm show link">
+      <button type="submit">Make playlist</button>
+    </form>
+    <p class="hint" id="loading" hidden>Searching YouTube Music for every song…</p>
+
+    {% if error %}
+      <p class="error" role="alert">{{ error }}</p>
+    {% endif %}
+
+    {% if result %}
+      <section class="result">
+        <h2>{{ result.setlist.artist }}</h2>
+        <p class="meta">
+          {{ result.setlist.venue }}{% if result.setlist.city %}, {{ result.setlist.city }}{% endif %}
+          · {{ result.setlist.event_date }}
+          · <a href="{{ result.setlist.url }}" target="_blank" rel="noopener">setlist.fm</a>
+        </p>
+
+        {% if result.playlist_urls %}
+          <div class="play">
+            {% for link in result.playlist_urls %}
+              <a class="play-button" href="{{ link }}" target="_blank" rel="noopener">
+                ▶ Play on YouTube{% if result.playlist_urls|length > 1 %} (part {{ loop.index }}){% endif %}
+              </a>
+            {% endfor %}
+            <p class="hint">
+              {{ result.found|length }} of {{ result.matches|length }} songs found.
+              Opens as a temporary playlist on YouTube, not saved to any account.
+            </p>
+          </div>
+        {% else %}
+          <p class="error">None of the songs could be found on YouTube Music.</p>
+        {% endif %}
+
+        <ol class="tracks">
+          {% for m in result.matches %}
+            <li class="{% if not m.track %}missing{% elif not m.confident %}unsure{% endif %}">
+              <span class="song">
+                {{ m.song.title }}
+                {% if m.song.original_artist %}<small>({{ m.song.original_artist }} cover)</small>{% endif %}
+              </span>
+              {% if m.track %}
+                <a class="track" href="https://music.youtube.com/watch?v={{ m.track.id }}"
+                   target="_blank" rel="noopener">
+                  {{ m.track.title }} — {{ m.track.artists|join(', ') }}
+                  {% if m.track.duration %}<small>{{ m.track.duration }}</small>{% endif %}
+                </a>
+                {% if not m.confident %}<span class="badge" title="Best guess; check it">unsure</span>{% endif %}
+              {% else %}
+                <span class="track">not found</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+
+        {% if result.skipped %}
+          <p class="hint">Skipped tape: {{ result.skipped|map(attribute='title')|join(', ') }}</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <footer>
+      Setlists from <a href="https://www.setlist.fm" target="_blank" rel="noopener">setlist.fm</a>.
+      Not affiliated with setlist.fm or YouTube.
+    </footer>
+  </main>
+  <script>
+    const form = document.querySelector("form.search");
+    const loading = document.getElementById("loading");
+    form.addEventListener("submit", () => {
+      form.querySelector("button").disabled = true;
+      loading.hidden = false;
+    });
+    // Back/forward cache restores the page as it was mid-submit; reset it.
+    window.addEventListener("pageshow", () => {
+      form.querySelector("button").disabled = false;
+      loading.hidden = true;
+    });
+  </script>
+</body>
+</html>

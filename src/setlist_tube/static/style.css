@@ -18,6 +18,7 @@
     --line: #3a3532;
     --card: #262220;
     --accent: #ef4444;
+    --accent-fg: #1c1917;  /* white on #ef4444 fails WCAG AA contrast */
     --warn: #fbbf24;
     --warn-bg: #3b2f0f;
   }

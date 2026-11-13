@@ -38,7 +38,7 @@ def client() -> Iterator[TestClient]:
     catalog = FakeCatalog(
         {
             "Radiohead Daydreaming": [track("d1", "Daydreaming", "Radiohead")],
-            "Radiohead Daydreamin": [track("d2", "Daydreaming", "Radiohead Tribute")],
+            "Radiohead Daydreamin": [track("d2", "Daydreaming", "Radiohead Live Band")],
         }
     )
     service = SetlistService(FakeSetlists(), catalog)  # type: ignore[arg-type]

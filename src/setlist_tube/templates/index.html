@@ -82,9 +82,16 @@
     </footer>
   </main>
   <script>
-    document.querySelector("form.search").addEventListener("submit", (e) => {
-      e.target.querySelector("button").disabled = true;
-      document.getElementById("loading").hidden = false;
+    const form = document.querySelector("form.search");
+    const loading = document.getElementById("loading");
+    form.addEventListener("submit", () => {
+      form.querySelector("button").disabled = true;
+      loading.hidden = false;
+    });
+    // Back/forward cache restores the page as it was mid-submit; reset it.
+    window.addEventListener("pageshow", () => {
+      form.querySelector("button").disabled = false;
+      loading.hidden = true;
     });
   </script>
 </body>

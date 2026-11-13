@@ -1,0 +1,15 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Deploys are triggered by CI (deploy hook) after checks pass on main,
+# so Render's own auto-deploy is off.
+services:
+  - type: web
+    name: setlist-tube
+    runtime: python
+    plan: free
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    startCommand: .venv/bin/uvicorn setlist_tube.web:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: SETLISTFM_API_KEY
+        sync: false  # set in the Render dashboard

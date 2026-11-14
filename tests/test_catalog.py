@@ -65,19 +65,38 @@ def test_search_skips_results_marked_unavailable() -> None:
     assert [t.id for t in catalog.search("q")] == ["abc123"]
 
 
+def _status(status: str | None, reason: str = "") -> dict[str, Any]:
+    return {"playabilityStatus": {"status": status, "reason": reason}} if status else {}
+
+
 def test_is_playable() -> None:
     fake = FakeYTMusic(
         {},
         songs={
-            "ok": {"playabilityStatus": {"status": "OK"}},
-            "dead": {"playabilityStatus": {"status": "UNPLAYABLE", "reason": "Video unavailable"}},
-            "odd": {},
+            "ok": _status("OK"),
+            "dead": _status("UNPLAYABLE", "Video unavailable"),
+            "error": _status("ERROR", "This video has been removed"),
+            "bot": _status("LOGIN_REQUIRED", "Sign in to confirm you\u2019re not a bot"),
+            "bot2": _status("UNPLAYABLE", "Sign in to confirm you're not a bot"),
+            "age": _status("AGE_CHECK_REQUIRED"),
+            "odd": _status(None),
         },
     )
     catalog = YouTubeMusicCatalog(fake)
     assert catalog.is_playable("ok")
     assert not catalog.is_playable("dead")
-    assert not catalog.is_playable("odd")
+    assert not catalog.is_playable("error")
+    for unclear in ("bot", "bot2", "age", "odd"):
+        assert catalog.is_playable(unclear), unclear
+
+
+def test_is_playable_stops_trusting_a_streak_of_dead_answers() -> None:
+    songs = {f"d{i}": _status("UNPLAYABLE", "Video unavailable") for i in range(8)}
+    catalog = YouTubeMusicCatalog(FakeYTMusic({}, songs={**songs, "ok": _status("OK")}))
+    answers = [catalog.is_playable(f"d{i}") for i in range(6)]
+    assert answers == [False, False, False, False, True, True]
+    assert catalog.is_playable("ok")  # a real "OK" resets the streak
+    assert not catalog.is_playable("d6")
 
 
 def test_is_playable_assumes_yes_when_check_fails() -> None:

@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from setlist_tube.catalog import Catalog
-from setlist_tube.matching import best_match, pick
+from setlist_tube.matching import no_match, pick, rank
 from setlist_tube.models import Match, Setlist, Song
 from setlist_tube.playlist import temporary_playlist_urls
 from setlist_tube.setlistfm import SetlistFmClient, parse_setlist_id
@@ -37,14 +37,28 @@ def match_song(catalog: Catalog, song: Song) -> Match:
     if song.original_artist:
         artists.append(song.original_artist)
 
-    best = Match(song=song, track=None, score=0.0, confident=False)
+    best = no_match(song)
     for artist in artists:
         for videos in (False, True):
             candidates = catalog.search(f"{artist} {song.title}", videos=videos)
-            best = pick(best, best_match(song, artist, candidates))
+            best = pick(best, _first_playable(catalog, rank(song, artist, candidates), best))
             if best.confident:
                 return best
     return best
+
+
+def _first_playable(catalog: Catalog, ranked: list[Match], current: Match) -> Match:
+    """The best of ``ranked`` that actually plays, or ``current`` if none beats it.
+
+    Search results include tracks YouTube no longer plays ("Video unavailable"),
+    and one dead first track stops the whole playlist link from playing.
+    """
+    for match in ranked:
+        if match.track is None or pick(current, match) is current:
+            continue  # wouldn't be chosen anyway; don't spend a lookup on it
+        if catalog.is_playable(match.track.id):
+            return match
+    return current
 
 
 class SetlistService:

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+import threading
 from typing import Any, Literal, Protocol
 
 from ytmusicapi import YTMusic
@@ -12,6 +14,16 @@ from setlist_tube.models import Track
 log = logging.getLogger(__name__)
 
 SearchKind = Literal["songs", "videos"]
+
+DEAD_STATUSES = frozenset({"UNPLAYABLE", "ERROR"})
+"""Playability statuses that mean the video is gone. Anything else (sign-in or
+age walls, odd new statuses) might still play for the viewer, so we keep it."""
+_BOT_WALL_RE = re.compile(r"\b(bot|sign in|log in|login)\b", re.IGNORECASE)
+"""YouTube's answer to requests it suspects are automated, e.g. from cloud
+servers: it says nothing about whether the video plays for a real viewer."""
+DISTRUST_AFTER = 5
+"""After this many rejections in a row, assume YouTube is blocking our checks
+(not that every track is dead) and keep tracks until a check succeeds again."""
 
 
 class Catalog(Protocol):
@@ -50,6 +62,8 @@ class YouTubeMusicCatalog:
 
     def __init__(self, client: Any | None = None) -> None:
         self._yt = client if client is not None else YTMusic()
+        self._lock = threading.Lock()
+        self._dead_streak = 0
 
     def _search(self, query: str, kind: SearchKind, limit: int) -> list[Track]:
         try:
@@ -64,18 +78,38 @@ class YouTubeMusicCatalog:
         return self._search(query, "videos" if videos else "songs", limit)
 
     def is_playable(self, track_id: str) -> bool:
-        """Ask YouTube whether the video plays, as seen from this server's region.
+        """Ask YouTube whether the video plays, as seen from this server.
 
-        Search still returns some tracks that only show "Video unavailable".
-        If the check itself fails we assume the track plays, rather than drop
-        a good match because of a hiccup.
+        Search still returns some tracks that only show "Video unavailable",
+        so those are dropped. Whenever the answer is unclear (the check fails,
+        YouTube asks us to prove we're not a bot, or every check is coming
+        back negative) we keep the track: a rare dead track is far better
+        than an empty playlist.
         """
         try:
             status = self._yt.get_song(track_id).get("playabilityStatus") or {}
         except Exception:
             log.exception("YouTube playability check failed for %r", track_id)
             return True
-        playable = status.get("status") == "OK"
-        if not playable:
-            log.info("Skipping unplayable %s: %s", track_id, status.get("reason"))
-        return playable
+        code, reason = status.get("status"), str(status.get("reason") or "")
+        if code == "OK":
+            self._record(dead=False)
+            return True
+        if code not in DEAD_STATUSES or _BOT_WALL_RE.search(reason):
+            log.warning("Unclear playability for %s (%s: %s); keeping it", track_id, code, reason)
+            return True
+        if self._record(dead=True) >= DISTRUST_AFTER:
+            log.warning(
+                "Ignoring 'unplayable' for %s: %d in a row looks like blocking",
+                track_id,
+                self._dead_streak,
+            )
+            return True
+        log.info("Skipping unplayable %s: %s", track_id, reason)
+        return False
+
+    def _record(self, *, dead: bool) -> int:
+        """Track consecutive 'dead' answers; return the current streak."""
+        with self._lock:
+            self._dead_streak = self._dead_streak + 1 if dead else 0
+            return self._dead_streak

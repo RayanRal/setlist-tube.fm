@@ -98,21 +98,32 @@ def score(song_title: str, artist: str, track: Track) -> tuple[float, float, flo
     return total, t, a
 
 
-def best_match(song: Song, artist: str, candidates: Iterable[Track]) -> Match:
-    """Choose the best of ``candidates`` for ``song`` as performed by ``artist``."""
-    best: Match = Match(song=song, track=None, score=0.0, confident=False)
+def rank(song: Song, artist: str, candidates: Iterable[Track]) -> list[Match]:
+    """Every acceptable match for ``song`` by ``artist``, best first.
+
+    Ties keep catalog order. Callers walk this list to skip tracks that turn
+    out to be unplayable.
+    """
+    matches = []
     for track in candidates:
         if is_impostor(song.title, artist, track):
             continue
         total, t, a = score(song.title, artist, track)
-        if t < MIN_TITLE or a < MIN_ARTIST:
+        if t < MIN_TITLE or a < MIN_ARTIST or total < MIN_SCORE:
             continue
-        if total > best.score:
-            confident = t >= CONFIDENT_TITLE and a >= CONFIDENT_ARTIST
-            best = Match(song=song, track=track, score=total, confident=confident)
-    if best.score < MIN_SCORE:
-        return Match(song=song, track=None, score=best.score, confident=False)
-    return best
+        confident = t >= CONFIDENT_TITLE and a >= CONFIDENT_ARTIST
+        matches.append(Match(song=song, track=track, score=total, confident=confident))
+    return sorted(matches, key=lambda m: m.score, reverse=True)
+
+
+def no_match(song: Song) -> Match:
+    return Match(song=song, track=None, score=0.0, confident=False)
+
+
+def best_match(song: Song, artist: str, candidates: Iterable[Track]) -> Match:
+    """Choose the best of ``candidates`` for ``song`` as performed by ``artist``."""
+    ranked = rank(song, artist, candidates)
+    return ranked[0] if ranked else no_match(song)
 
 
 def pick(*matches: Match) -> Match:

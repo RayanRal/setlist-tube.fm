@@ -22,11 +22,15 @@ class Catalog(Protocol):
         """
         ...
 
+    def is_playable(self, track_id: str) -> bool:
+        """Whether the track can actually be played (not removed or blocked)."""
+        ...
+
 
 def _track_from_result(result: dict[str, Any], *, is_song: bool) -> Track | None:
     video_id = result.get("videoId")
     title = result.get("title")
-    if not video_id or not title:
+    if not video_id or not title or result.get("isAvailable") is False:
         return None
     return Track(
         id=video_id,
@@ -58,3 +62,20 @@ class YouTubeMusicCatalog:
 
     def search(self, query: str, limit: int = 5, *, videos: bool = False) -> list[Track]:
         return self._search(query, "videos" if videos else "songs", limit)
+
+    def is_playable(self, track_id: str) -> bool:
+        """Ask YouTube whether the video plays, as seen from this server's region.
+
+        Search still returns some tracks that only show "Video unavailable".
+        If the check itself fails we assume the track plays, rather than drop
+        a good match because of a hiccup.
+        """
+        try:
+            status = self._yt.get_song(track_id).get("playabilityStatus") or {}
+        except Exception:
+            log.exception("YouTube playability check failed for %r", track_id)
+            return True
+        playable = status.get("status") == "OK"
+        if not playable:
+            log.info("Skipping unplayable %s: %s", track_id, status.get("reason"))
+        return playable

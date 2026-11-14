@@ -108,3 +108,51 @@ def test_build_can_include_tape() -> None:
     )
     assert result.skipped == []
     assert len(result.matches) == 1
+
+
+RUE_MORGUE = Song(title="Murders in the Rue Morgue", artist="Iron Maiden")
+
+
+def test_unplayable_match_falls_back_to_next_candidate() -> None:
+    catalog = FakeCatalog(
+        {
+            "Iron Maiden Murders in the Rue Morgue": [
+                track("dead", "Murders in the Rue Morgue", "Iron Maiden"),
+                track("alive", "Murders in the Rue Morgue", "Iron Maiden"),
+            ]
+        },
+        unplayable={"dead"},
+    )
+    match = match_song(catalog, RUE_MORGUE)
+    assert match.track is not None and match.track.id == "alive"
+    assert match.confident
+    assert catalog.playability_checks == ["dead", "alive"]
+
+
+def test_unplayable_song_falls_back_to_video() -> None:
+    query = "Iron Maiden Murders in the Rue Morgue"
+    catalog = FakeCatalog(
+        {query: [track("dead", "Murders in the Rue Morgue", "Iron Maiden")]},
+        videos={query: [track("v", "Murders in the Rue Morgue", "Iron Maiden", is_song=False)]},
+        unplayable={"dead"},
+    )
+    match = match_song(catalog, RUE_MORGUE)
+    assert match.track is not None and match.track.id == "v"
+
+
+def test_all_unplayable_is_not_found() -> None:
+    query = "Iron Maiden Murders in the Rue Morgue"
+    catalog = FakeCatalog(
+        {query: [track("dead", "Murders in the Rue Morgue", "Iron Maiden")]},
+        unplayable={"dead"},
+    )
+    assert match_song(catalog, RUE_MORGUE).track is None
+
+
+def test_playability_not_checked_for_candidates_that_cannot_win() -> None:
+    query = "Iron Maiden Murders in the Rue Morgue"
+    catalog = FakeCatalog(
+        {query: [track("s", "Murders in the Rue Morgue", "Iron Maiden")]},
+    )
+    match_song(catalog, RUE_MORGUE)
+    assert catalog.playability_checks == ["s"]  # confident on first search: one check
